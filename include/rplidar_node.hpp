@@ -65,7 +65,7 @@ using Timer = rclcpp::TimerBase::SharedPtr;
 using namespace std::chrono_literals;
 }
 
-namespace rplidar_ros
+namespace rplidar_ros2
 {
 
 constexpr double deg_2_rad(double x)
@@ -125,6 +125,6 @@ private:
   const float min_distance = 0.15f;
 };
 
-}  // namespace rplidar_ros
+}  // namespace rplidar_ros2
 
 #endif  // RPLIDAR_NODE_HPP_

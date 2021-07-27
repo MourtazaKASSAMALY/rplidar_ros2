@@ -211,24 +211,27 @@ int main(int argc, char * argv[]) {
     float max_distance = 8.0;
     int angle_compensate_multiple = 1;//it stand of angle compensate at per 1 degree
     std::string scan_mode;
+    std::string topic_name;
+
     // ros::NodeHandle nh;
     // auto scan_pub = nh.advertise<sensor_msgs::msg::LaserScan>("scan", 1000);
-
-    /* scan publisher */
-    auto scan_pub = node->create_publisher<sensor_msgs::msg::LaserScan>("scan", 10);
 
     /* set parameters */
     node->get_parameter_or("channel_type", channel_type, std::string("serial"));
     node->get_parameter_or("tcp_ip", tcp_ip, std::string("192.168.0.7"));
     node->get_parameter_or("tcp_port", tcp_port, 20108);
     node->get_parameter_or("serial_port", serial_port, std::string("/dev/ttyUSB0"));
-    node->get_parameter_or("serial_baudrate", serial_baudrate, 115200);
-    node->get_parameter_or("frame_id", frame_id, std::string("laser_frame"));
+    node->get_parameter_or("serial_baudrate", serial_baudrate, 256000);
+    node->get_parameter_or("frame_id", frame_id, std::string("base_scan"));
     node->get_parameter_or("inverted", inverted, false);
     node->get_parameter_or("angle_compensate", angle_compensate, false);
     node->get_parameter_or("scan_mode", scan_mode, std::string());
+    node->get_parameter_or("topic_name", topic_name, std::string("scan"));
 
-    ROS_INFO("RPLIDAR running on ROS package rplidar_ros. SDK Version:"RPLIDAR_SDK_VERSION"");
+    /* scan publisher */
+    auto scan_pub = node->create_publisher<sensor_msgs::msg::LaserScan>(topic_name, 10);
+
+    ROS_INFO("RPLIDAR running on ROS package rplidar_ros2. SDK Version:"RPLIDAR_SDK_VERSION"");
 
     u_result     op_result;
 

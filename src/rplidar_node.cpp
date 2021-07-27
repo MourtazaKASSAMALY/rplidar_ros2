@@ -35,7 +35,7 @@
 
 #include <rplidar_node.hpp>
 
-namespace rplidar_ros
+namespace rplidar_ros2
 {
 
 rplidar_node::rplidar_node(const rclcpp::NodeOptions & options)
@@ -46,15 +46,15 @@ rplidar_node::rplidar_node(const rclcpp::NodeOptions & options)
   tcp_ip_ = this->declare_parameter("tcp_ip", "192.168.0.7");
   tcp_port_ = this->declare_parameter("tcp_port", 20108);
   serial_port_ = this->declare_parameter("serial_port", "/dev/ttyUSB0");
-  serial_baudrate_ = this->declare_parameter("serial_baudrate", 115200);
-  frame_id_ = this->declare_parameter("frame_id", std::string("laser_frame"));
+  serial_baudrate_ = this->declare_parameter("serial_baudrate", 256000);
+  frame_id_ = this->declare_parameter("frame_id", std::string("base_scan"));
   inverted_ = this->declare_parameter("inverted", false);
   angle_compensate_ = this->declare_parameter("angle_compensate", false);
   scan_mode_ = this->declare_parameter("scan_mode", std::string());
-  topic_name_ = this->declare_parameter("topic_name", std::string("scan"));
+  topic_name_ = this->declare_parameter("topic_name", std::string("scan_1"));
 
   RCLCPP_INFO(this->get_logger(),
-    "RPLIDAR running on ROS 2 package rplidar_ros. SDK Version: '%s'", RPLIDAR_SDK_VERSION);
+    "RPLIDAR running on ROS 2 package rplidar_ros2. SDK Version: '%s'", RPLIDAR_SDK_VERSION);
 
   /* initialize SDK */
   m_drv = (channel_type_ == "tcp") ?
@@ -385,8 +385,8 @@ void rplidar_node::publish_loop()
   }
 }
 
-}  // namespace rplidar_ros
+}  // namespace rplidar_ros2
 
 #include "rclcpp_components/register_node_macro.hpp"
 
-RCLCPP_COMPONENTS_REGISTER_NODE(rplidar_ros::rplidar_node)
+RCLCPP_COMPONENTS_REGISTER_NODE(rplidar_ros2::rplidar_node)
