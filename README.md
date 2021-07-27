@@ -1,3 +1,5 @@
+Original repository: https://github.com/youngday/rplidar_ros2 | See rplidar_ros2.patch
+
 # What's new with this fork
 
 Launch file with configurable parameters:
@@ -9,8 +11,6 @@ Launch file with configurable parameters:
 - angle_compensate, defaults to true
 - scan_mode, defaults to Sensitivity
 - topic_name, defaults to /scan
-
-Original repository: https://github.com/youngday/rplidar_ros2 | See rplidar_ros2.patch
 
 RPLIDAR ROS package
 =====================================================================
