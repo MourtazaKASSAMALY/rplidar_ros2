@@ -10,6 +10,8 @@ Launch file with configurable parameters:
 - scan_mode, defaults to Sensitivity
 - topic_name, defaults to /scan
 
+Original repository: https://github.com/youngday/rplidar_ros2 | See rplidar_ros2.patch
+
 RPLIDAR ROS package
 =====================================================================
 
