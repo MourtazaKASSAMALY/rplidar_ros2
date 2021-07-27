@@ -1,4 +1,4 @@
-Original repository: https://github.com/youngday/rplidar_ros2 | See rplidar_ros2.patch
+Original repository: https://github.com/youngday/rplidar_ros2/tree/ros2 | See rplidar_ros2.patch
 
 # What's new with this fork
 
@@ -44,14 +44,34 @@ echo "source ~/ros2_workspace/install/setup.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
 
+## Set proxy
+
+```bash
+export http_proxy="http://defra1c-proxy.emea.nsn-net.net:8080"
+export https_proxy="http://defra1c-proxy.emea.nsn-net.net:8080"
+export ftp_proxy="http://defra1c-proxy.emea.nsn-net.net:8080"
+echo "Acquire::http::proxy \"http://defra1c-proxy.emea.nsn-net.net:8080/\";" | sudo tee /etc/apt/apt.conf
+git config --global http.proxy http://defra1c-proxy.emea.nsn-net.net:8080
+```
+
 ## Build custom RP LiDAR ROS2 packages:
 
 ```shell
 cd ~/ros2_workspace/src
-git clone -b ros2 https://github.com/MourtazaKASSAMALY/rplidar_ros2.git
+git clone https://gitlabe2.ext.net.nokia.com/kassamal/rplidar_ros2.git
 cd ..
 colcon build --symlink-install
 source ~/.bashrc
+```
+
+## Unset proxy
+
+```bash
+export http_proxy=""
+export https_proxy=""
+export ftp_proxy=""
+echo "Acquire::http::proxy \"\";" | sudo tee /etc/apt/apt.conf
+git config --global --unset http.proxy
 ```
 
 How to run rplidar ros2 package
