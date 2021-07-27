@@ -1,0 +1,577 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+old mode 100644
+new mode 100755
+index 394d931..66d0c2b
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,5 +1,5 @@
+ cmake_minimum_required(VERSION 3.9.5)
+-project(rplidar_ros)
++project(rplidar_ros2)
+ 
+ # Default to C++14
+ if(NOT CMAKE_CXX_STANDARD)
+@@ -72,9 +72,4 @@ install(
+   RUNTIME DESTINATION bin
+ )
+ 
+-# TODO(hallen): port this
+-# install(DIRECTORY sdk
+-#   USE_SOURCE_PERMISSIONS
+-# )
+-
+ ament_auto_package()
+diff --git a/README.md b/README.md
+old mode 100644
+new mode 100755
+index 7f9bc1c..6c4e52d
+--- a/README.md
++++ b/README.md
+@@ -1,3 +1,15 @@
++# What's new with this fork
++
++Launch file with configurable parameters:
++
++- serial_port, defaults to tty/USB0
++- serial_baudrate, defaults to 256000
++- frame_id, defaults to base_scan
++- inverted, defaults to false
++- angle_compensate, defaults to true
++- scan_mode, defaults to Sensitivity
++- topic_name, defaults to /scan
++
+ RPLIDAR ROS package
+ =====================================================================
+ 
+@@ -15,22 +27,41 @@ rplidar Tutorial:  https://github.com/robopeak/rplidar_ros/wiki
+ 
+ How to build rplidar ros package
+ =====================================================================
+-    1) Clone this project to your colcon workspace src folder
+-    2) Install Eloquent ROS2 and colcon compiler.
+-```bash
+-source /opt/ros/eloquent/setup.sh
++
++## Requirements:
++
++- Ubuntu 18.04.5 LTS
++- ROS2 Eloquent
++
++## Create ROS2 Workspace:
++
++```shell
++cd ~
++mkdir -p ros2_worskpace/src
++echo "source ~/ros2_workspace/install/setup.bash" >> ~/.bashrc
++source ~/.bashrc
++```
++
++## Build custom RP LiDAR ROS2 packages:
++
++```shell
++cd ~/ros2_workspace/src
++git clone -b ros2 https://github.com/MourtazaKASSAMALY/rplidar_ros2.git
++cd ..
+ colcon build --symlink-install
++source ~/.bashrc
+ ```
+-How to run rplidar ros package
++
++How to run rplidar ros2 package
+ =====================================================================
+-There're two ways to run rplidar ros package
+-Note! Just test for RPLIDAR A1/A2,not test A3 and S1,need your test.
++There're three ways to run rplidar ros package
++
+ I. Run rplidar node and view in the rviz
+ ------------------------------------------------------------
+ At first console,
+ ```bash
+ source ./install/setup.bash
+-ros2 run rplidar_ros rplidarNode 
++ros2 run rplidar_ros2 rplidarNode 
+ ```
+ At second console,
+ ```bash
+@@ -40,24 +71,26 @@ ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0  world laser_frame
+ At third console,
+ ```bash
+ source ./install/setup.bash
+-rviz2 ./install/rplidar_ros/share/rplidar_ros/rviz/rplidar.rviz
++rviz2 ./install/rplidar_ros2/share/rplidar_ros2/rviz/rplidar.rviz
+ ```
+-Rviz set,
+-note! 
+-set frame into laser_frame  ,not laser
+-add laser scan 
+-You should see rplidar's scan result in the rviz.
++Rviz is set, set frame into laser_frame instead not laser, add a laser scan with /scan topic and you should see rplidar's scan result in the rviz.
+ 
+ II. Run rplidar node and view using test application
+ ------------------------------------------------------------
+ ```bash
+ source ./install/setup.bash
+-ros2 run rplidar_ros rplidarNodeClient 
++ros2 run rplidar_ros2 rplidarNodeClient 
+ ```
+ You should see rplidar's scan result in the console
+ 
+ Notice: the different is serial_baudrate between A1/A2 and A3/S1
+ 
++III. Run rplidar A3 launch file with configurable parameters (preferred)
++------------------------------------------------------------
++```bash
++ros2 launch rplidar_ros2 rplidar_a3.launch.py topic_name:=/scan
++```
++
+ RPLidar frame
+ =====================================================================
+ RPLidar frame must be broadcasted according to picture shown in rplidar-frame.png
+diff --git a/include/rplidar_node.hpp b/include/rplidar_node.hpp
+old mode 100644
+new mode 100755
+index 7816a2b..a59a750
+--- a/include/rplidar_node.hpp
++++ b/include/rplidar_node.hpp
+@@ -65,7 +65,7 @@ using Timer = rclcpp::TimerBase::SharedPtr;
+ using namespace std::chrono_literals;
+ }
+ 
+-namespace rplidar_ros
++namespace rplidar_ros2
+ {
+ 
+ constexpr double deg_2_rad(double x)
+@@ -125,6 +125,6 @@ private:
+   const float min_distance = 0.15f;
+ };
+ 
+-}  // namespace rplidar_ros
++}  // namespace rplidar_ros2
+ 
+ #endif  // RPLIDAR_NODE_HPP_
+diff --git a/launch/rplidar.launch.py b/launch/rplidar.launch.py
+deleted file mode 100644
+index aaca70f..0000000
+--- a/launch/rplidar.launch.py
++++ /dev/null
+@@ -1,21 +0,0 @@
+-from launch import LaunchDescription
+-from launch_ros.actions import Node
+-
+-
+-def generate_launch_description():
+-    return LaunchDescription([
+-        Node(
+-            node_name='rplidar_composition',
+-            package='rplidar_ros',
+-            node_executable='rplidar_composition',
+-            output='screen',
+-            parameters=[{
+-                'serial_port': '/dev/ttyUSB0',
+-                'serial_baudrate': 115200,  # A1 / A2
+-                # 'serial_baudrate': 256000, # A3
+-                'frame_id': 'laser',
+-                'inverted': False,
+-                'angle_compensate': True,
+-            }],
+-        ),
+-    ])
+diff --git a/launch/rplidar_a3.launch.py b/launch/rplidar_a3.launch.py
+old mode 100644
+new mode 100755
+index 37a2d49..a554a2f
+--- a/launch/rplidar_a3.launch.py
++++ b/launch/rplidar_a3.launch.py
+@@ -1,21 +1,33 @@
+ from launch import LaunchDescription
++from launch.actions import DeclareLaunchArgument
++from launch.substitutions import LaunchConfiguration
+ from launch_ros.actions import Node
+ 
++configurable_parameters=[
++    {'name': 'serial_port', 'default': '/dev/ttyUSB0', 'description': ''},
++    {'name': 'serial_baudrate', 'default': '256000', 'description': ''}, # A3
++    {'name': 'frame_id', 'default': 'base_scan', 'description': ''},
++    {'name': 'inverted', 'default': 'false', 'description': ''},
++    {'name': 'angle_compensate', 'default': 'true', 'description': ''},
++    {'name': 'scan_mode', 'default': 'Sensitivity', 'description': ''},
++    {'name': 'topic_name', 'default': 'scan', 'description': ''},
++]
++
++def declare_configurable_parameters(parameters):
++    return [DeclareLaunchArgument(param['name'], default_value=param['default'], description=param['description']) for param in parameters]
++
++def set_configurable_parameters(parameters):
++    return dict([(param['name'], LaunchConfiguration(param['name'])) for param in parameters])
+ 
+ def generate_launch_description():
+-    return LaunchDescription([
++    return LaunchDescription(
++        declare_configurable_parameters(configurable_parameters) + [
+         Node(
+             node_name='rplidar_composition',
+-            package='rplidar_ros',
++            package='rplidar_ros2',
+             node_executable='rplidar_composition',
+             output='screen',
+-            parameters=[{
+-                'serial_port': '/dev/ttyUSB0',
+-                'serial_baudrate': 256000,  # A3
+-                'frame_id': 'laser',
+-                'inverted': False,
+-                'angle_compensate': True,
+-                'scan_mode': 'Sensitivity',
+-            }],
+-        ),
++            parameters=[set_configurable_parameters(configurable_parameters)],
++            emulate_tty=True
++            ),
+     ])
+diff --git a/launch/rplidar_s1.launch.py b/launch/rplidar_s1.launch.py
+deleted file mode 100644
+index 26184d1..0000000
+--- a/launch/rplidar_s1.launch.py
++++ /dev/null
+@@ -1,20 +0,0 @@
+-from launch import LaunchDescription
+-from launch_ros.actions import Node
+-
+-
+-def generate_launch_description():
+-    return LaunchDescription([
+-        Node(
+-            node_name='rplidar_composition',
+-            package='rplidar_ros',
+-            node_executable='rplidar_composition',
+-            output='screen',
+-            parameters=[{
+-                'serial_port': '/dev/ttyUSB0',
+-                'serial_baudrate': 256000,
+-                'frame_id': 'laser',
+-                'inverted': False,
+-                'angle_compensate': True,
+-            }],
+-        ),
+-    ])
+diff --git a/launch/rplidar_s1_tcp.launch.py b/launch/rplidar_s1_tcp.launch.py
+deleted file mode 100644
+index c285a5e..0000000
+--- a/launch/rplidar_s1_tcp.launch.py
++++ /dev/null
+@@ -1,21 +0,0 @@
+-from launch import LaunchDescription
+-from launch_ros.actions import Node
+-
+-
+-def generate_launch_description():
+-    return LaunchDescription([
+-        Node(
+-            node_name='rplidar_composition',
+-            package='rplidar_ros',
+-            node_executable='rplidar_composition',
+-            output='screen',
+-            parameters=[{
+-                'channel_type': 'tcp',
+-                'tcp_ip': '192.168.0.7',
+-                'tcp_port': 20108,
+-                'frame_id': 'laser',
+-                'inverted': False,
+-                'angle_compensate': True,
+-            }]
+-        ),
+-    ])
+diff --git a/launch/test_rplidar.launch.py b/launch/test_rplidar.launch.py
+deleted file mode 100644
+index 6a90222..0000000
+--- a/launch/test_rplidar.launch.py
++++ /dev/null
+@@ -1,26 +0,0 @@
+-from launch import LaunchDescription
+-from launch_ros.actions import Node
+-
+-
+-def generate_launch_description():
+-    return LaunchDescription([
+-        Node(
+-            node_name='rplidar_composition',
+-            package='rplidar_ros',
+-            node_executable='rplidar_composition',
+-            output='screen',
+-            parameters=[{
+-                'serial_port': '/dev/ttyUSB0',
+-                'serial_baudrate': 115200,
+-                'frame_id': 'laser',
+-                'inverted': False,
+-                'angle_compensate': True,
+-            }],
+-        ),
+-        Node(
+-            node_name='rplidarNodeClient',
+-            package='rplidar_ros',
+-            node_executable='rplidarNodeClient',
+-            output='screen',
+-        ),
+-    ])
+diff --git a/launch/test_rplidar_a3.launch.py b/launch/test_rplidar_a3.launch.py
+deleted file mode 100644
+index 3312611..0000000
+--- a/launch/test_rplidar_a3.launch.py
++++ /dev/null
+@@ -1,27 +0,0 @@
+-from launch import LaunchDescription
+-from launch_ros.actions import Node
+-
+-
+-def generate_launch_description():
+-    return LaunchDescription([
+-        Node(
+-            node_name='rplidar_composition',
+-            package='rplidar_ros',
+-            node_executable='rplidar_composition',
+-            output='screen',
+-            parameters=[{
+-                'serial_port': '/dev/ttyUSB0',
+-                'serial_baudrate': 115200,
+-                'frame_id': 'laser',
+-                'inverted': False,
+-                'angle_compensate': True,
+-                'scan_mode': 'Sensitivity',
+-            }],
+-        ),
+-        Node(
+-            node_name='rplidarNodeClient',
+-            package='rplidar_ros',
+-            node_executable='rplidarNodeClient',
+-            output='screen',
+-        ),
+-    ])
+diff --git a/launch/view_rplidar.launch.py b/launch/view_rplidar.launch.py
+deleted file mode 100644
+index d42df73..0000000
+--- a/launch/view_rplidar.launch.py
++++ /dev/null
+@@ -1,17 +0,0 @@
+-from launch import LaunchDescription
+-from launch.actions import IncludeLaunchDescription
+-from launch.launch_description_sources import PythonLaunchDescriptionSource
+-from launch.substitutions import ThisLaunchFileDir
+-from launch_ros.actions import Node
+-
+-
+-def generate_launch_description():
+-    return LaunchDescription([
+-        IncludeLaunchDescription(PythonLaunchDescriptionSource([ThisLaunchFileDir(), '/rplidar.launch.py'])),
+-        Node(
+-            package='rviz2',
+-            node_executable='rviz2',
+-            output='screen',
+-            arguments=['-d', [ThisLaunchFileDir(), '/../rviz/rplidar.rviz']],
+-        )
+-    ])
+diff --git a/launch/view_rplidar_a3.launch.py b/launch/view_rplidar_a3.launch.py
+deleted file mode 100644
+index 21873b4..0000000
+--- a/launch/view_rplidar_a3.launch.py
++++ /dev/null
+@@ -1,17 +0,0 @@
+-from launch import LaunchDescription
+-from launch.actions import IncludeLaunchDescription
+-from launch.launch_description_sources import PythonLaunchDescriptionSource
+-from launch.substitutions import ThisLaunchFileDir
+-from launch_ros.actions import Node
+-
+-
+-def generate_launch_description():
+-    return LaunchDescription([
+-        IncludeLaunchDescription(PythonLaunchDescriptionSource([ThisLaunchFileDir(), '/rplidar_a3.launch.py'])),
+-        Node(
+-            package='rviz2',
+-            node_executable='rviz2',
+-            output='screen',
+-            arguments=['-d', [ThisLaunchFileDir(), '/../rviz/rplidar.rviz']],
+-        )
+-    ])
+diff --git a/launch/view_rplidar_s1.launch.py b/launch/view_rplidar_s1.launch.py
+deleted file mode 100644
+index 934e01d..0000000
+--- a/launch/view_rplidar_s1.launch.py
++++ /dev/null
+@@ -1,17 +0,0 @@
+-from launch import LaunchDescription
+-from launch.actions import IncludeLaunchDescription
+-from launch.launch_description_sources import PythonLaunchDescriptionSource
+-from launch.substitutions import ThisLaunchFileDir
+-from launch_ros.actions import Node
+-
+-
+-def generate_launch_description():
+-    return LaunchDescription([
+-        IncludeLaunchDescription(PythonLaunchDescriptionSource([ThisLaunchFileDir(), '/rplidar_s1.launch.py'])),
+-        Node(
+-            package='rviz2',
+-            node_executable='rviz2',
+-            output='screen',
+-            arguments=['-d', [ThisLaunchFileDir(), '/../rviz/rplidar.rviz']],
+-        )
+-    ])
+diff --git a/launch/view_rplidar_s1_tcp.launch.py b/launch/view_rplidar_s1_tcp.launch.py
+deleted file mode 100644
+index 6a6ca40..0000000
+--- a/launch/view_rplidar_s1_tcp.launch.py
++++ /dev/null
+@@ -1,17 +0,0 @@
+-from launch import LaunchDescription
+-from launch.actions import IncludeLaunchDescription
+-from launch.launch_description_sources import PythonLaunchDescriptionSource
+-from launch.substitutions import ThisLaunchFileDir
+-from launch_ros.actions import Node
+-
+-
+-def generate_launch_description():
+-    return LaunchDescription([
+-        IncludeLaunchDescription(PythonLaunchDescriptionSource([ThisLaunchFileDir(), '/rplidar_s1_tcp.launch.py'])),
+-        Node(
+-            package='rviz2',
+-            node_executable='rviz2',
+-            output='screen',
+-            arguments=['-d', [ThisLaunchFileDir(), '/../rviz/rplidar.rviz']],
+-        )
+-    ])
+diff --git a/package.xml b/package.xml
+old mode 100644
+new mode 100755
+index 867f30a..d90337f
+--- a/package.xml
++++ b/package.xml
+@@ -1,8 +1,8 @@
+ <?xml version="1.0"?>
+ <package format="3">
+-  <name>rplidar_ros</name>
++  <name>rplidar_ros2</name>
+   <version>1.10.0</version>
+-  <description>The rplidar ros package, support rplidar A2/A1 and A3/S1</description>
++  <description>The rplidar ros2 package, support rplidar A2/A1 and A3/S1</description>
+ 
+   <maintainer email="ros@slamtec.com">Slamtec ROS Maintainer</maintainer>
+   <license>BSD</license>
+diff --git a/rplidar_A3.png b/rplidar_A3.png
+new file mode 100755
+index 0000000..3ca9294
+Binary files /dev/null and b/rplidar_A3.png differ
+diff --git a/src/node.cpp b/src/node.cpp
+old mode 100644
+new mode 100755
+index 4171276..2213c5c
+--- a/src/node.cpp
++++ b/src/node.cpp
+@@ -211,24 +211,27 @@ int main(int argc, char * argv[]) {
+     float max_distance = 8.0;
+     int angle_compensate_multiple = 1;//it stand of angle compensate at per 1 degree
+     std::string scan_mode;
++    std::string topic_name;
++
+     // ros::NodeHandle nh;
+     // auto scan_pub = nh.advertise<sensor_msgs::msg::LaserScan>("scan", 1000);
+ 
+-    /* scan publisher */
+-    auto scan_pub = node->create_publisher<sensor_msgs::msg::LaserScan>("scan", 10);
+-
+     /* set parameters */
+     node->get_parameter_or("channel_type", channel_type, std::string("serial"));
+     node->get_parameter_or("tcp_ip", tcp_ip, std::string("192.168.0.7"));
+     node->get_parameter_or("tcp_port", tcp_port, 20108);
+     node->get_parameter_or("serial_port", serial_port, std::string("/dev/ttyUSB0"));
+-    node->get_parameter_or("serial_baudrate", serial_baudrate, 115200);
+-    node->get_parameter_or("frame_id", frame_id, std::string("laser_frame"));
++    node->get_parameter_or("serial_baudrate", serial_baudrate, 256000);
++    node->get_parameter_or("frame_id", frame_id, std::string("base_scan"));
+     node->get_parameter_or("inverted", inverted, false);
+     node->get_parameter_or("angle_compensate", angle_compensate, false);
+     node->get_parameter_or("scan_mode", scan_mode, std::string());
++    node->get_parameter_or("topic_name", topic_name, std::string("scan"));
++
++    /* scan publisher */
++    auto scan_pub = node->create_publisher<sensor_msgs::msg::LaserScan>(topic_name, 10);
+ 
+-    ROS_INFO("RPLIDAR running on ROS package rplidar_ros. SDK Version:"RPLIDAR_SDK_VERSION"");
++    ROS_INFO("RPLIDAR running on ROS package rplidar_ros2. SDK Version:"RPLIDAR_SDK_VERSION"");
+ 
+     u_result     op_result;
+ 
+diff --git a/src/rplidar_node.cpp b/src/rplidar_node.cpp
+old mode 100644
+new mode 100755
+index e447881..0418792
+--- a/src/rplidar_node.cpp
++++ b/src/rplidar_node.cpp
+@@ -35,7 +35,7 @@
+ 
+ #include <rplidar_node.hpp>
+ 
+-namespace rplidar_ros
++namespace rplidar_ros2
+ {
+ 
+ rplidar_node::rplidar_node(const rclcpp::NodeOptions & options)
+@@ -46,15 +46,15 @@ rplidar_node::rplidar_node(const rclcpp::NodeOptions & options)
+   tcp_ip_ = this->declare_parameter("tcp_ip", "192.168.0.7");
+   tcp_port_ = this->declare_parameter("tcp_port", 20108);
+   serial_port_ = this->declare_parameter("serial_port", "/dev/ttyUSB0");
+-  serial_baudrate_ = this->declare_parameter("serial_baudrate", 115200);
+-  frame_id_ = this->declare_parameter("frame_id", std::string("laser_frame"));
++  serial_baudrate_ = this->declare_parameter("serial_baudrate", 256000);
++  frame_id_ = this->declare_parameter("frame_id", std::string("base_scan"));
+   inverted_ = this->declare_parameter("inverted", false);
+   angle_compensate_ = this->declare_parameter("angle_compensate", false);
+   scan_mode_ = this->declare_parameter("scan_mode", std::string());
+-  topic_name_ = this->declare_parameter("topic_name", std::string("scan"));
++  topic_name_ = this->declare_parameter("topic_name", std::string("scan_1"));
+ 
+   RCLCPP_INFO(this->get_logger(),
+-    "RPLIDAR running on ROS 2 package rplidar_ros. SDK Version: '%s'", RPLIDAR_SDK_VERSION);
++    "RPLIDAR running on ROS 2 package rplidar_ros2. SDK Version: '%s'", RPLIDAR_SDK_VERSION);
+ 
+   /* initialize SDK */
+   m_drv = (channel_type_ == "tcp") ?
+@@ -385,8 +385,8 @@ void rplidar_node::publish_loop()
+   }
+ }
+ 
+-}  // namespace rplidar_ros
++}  // namespace rplidar_ros2
+ 
+ #include "rclcpp_components/register_node_macro.hpp"
+ 
+-RCLCPP_COMPONENTS_REGISTER_NODE(rplidar_ros::rplidar_node)
++RCLCPP_COMPONENTS_REGISTER_NODE(rplidar_ros2::rplidar_node)
+diff --git a/src/standalone_prlidar.cpp b/src/standalone_prlidar.cpp
+old mode 100644
+new mode 100755
+index c75c261..97481bd
+--- a/src/standalone_prlidar.cpp
++++ b/src/standalone_prlidar.cpp
+@@ -19,7 +19,7 @@
+ int main(int argc, char ** argv)
+ {
+   rclcpp::init(argc, argv);
+-  rclcpp::spin(std::make_shared<rplidar_ros::rplidar_node>(rclcpp::NodeOptions()));
++  rclcpp::spin(std::make_shared<rplidar_ros2::rplidar_node>(rclcpp::NodeOptions()));
+   rclcpp::shutdown();
+   return 0;
+ }
+diff --git a/src/standalone_rplidar.cpp b/src/standalone_rplidar.cpp
+old mode 100644
+new mode 100755
+index c75c261..97481bd
+--- a/src/standalone_rplidar.cpp
++++ b/src/standalone_rplidar.cpp
+@@ -19,7 +19,7 @@
+ int main(int argc, char ** argv)
+ {
+   rclcpp::init(argc, argv);
+-  rclcpp::spin(std::make_shared<rplidar_ros::rplidar_node>(rclcpp::NodeOptions()));
++  rclcpp::spin(std::make_shared<rplidar_ros2::rplidar_node>(rclcpp::NodeOptions()));
+   rclcpp::shutdown();
+   return 0;
+ }
