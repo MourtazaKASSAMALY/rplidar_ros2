@@ -44,7 +44,7 @@ echo "source ~/ros2_workspace/install/setup.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
 
-## Set proxy
+## Set proxy when connected from VPN
 
 ```bash
 export http_proxy="http://defra1c-proxy.emea.nsn-net.net:8080"
@@ -64,7 +64,7 @@ colcon build --symlink-install
 source ~/.bashrc
 ```
 
-## Unset proxy
+## Unset proxy if disconnected from VPN
 
 ```bash
 export http_proxy=""
